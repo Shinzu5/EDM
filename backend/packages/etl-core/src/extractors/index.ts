@@ -6,6 +6,8 @@ import { billingConnector } from './billing.js';
 import { insuranceConnector } from './insurance.js';
 import { legacyConnector } from './legacy.js';
 
+export { defaultFixturesDir } from '../paths.js';
+
 export { emrConnector, lisConnector, billingConnector, insuranceConnector, legacyConnector };
 
 export const CONNECTOR_NAMES = ['emr', 'lis', 'billing', 'insurance', 'legacy'] as const;

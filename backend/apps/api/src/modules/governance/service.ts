@@ -134,7 +134,7 @@ export async function quality(req: Request): Promise<unknown> {
 /** Map FreshnessSla.tableName → a timestamp probe over the target table. */
 type Probe = () => Promise<Date | null>;
 
-function probeAggregate(factory: () => { aggregate: (args: { _max: { updatedAt: true } }) => Promise<{ _max: { updatedAt: Date | null } } } }): Probe {
+function probeAggregate(factory: () => { aggregate: (args: { _max: { updatedAt: true } }) => Promise<{ _max: { updatedAt: Date | null } }> }): Probe {
   return async () => (await factory().aggregate({ _max: { updatedAt: true } }))._max.updatedAt;
 }
 

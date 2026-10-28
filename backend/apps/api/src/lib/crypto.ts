@@ -16,7 +16,7 @@ let cachedKey: Buffer | null = null;
 
 /** Derive the 256-bit field-encryption key (lazy so tests can set env first). */
 export function deriveKey(secret: string = config.JWT_SECRET): Buffer {
-  if (!cachedKey || secret !== config.jwtSecret) {
+  if (!cachedKey || secret !== config.JWT_SECRET) {
     cachedKey = scryptSync(secret, KEY_SALT, 32);
   }
   return cachedKey;

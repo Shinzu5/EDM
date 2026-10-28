@@ -136,8 +136,8 @@ export async function listPatients(req: Request, query: z.infer<typeof ListQuery
       lastEncounterAt: lastByPatient.get(r.id) ?? null,
       openClaimCount: openByPatient.get(r.id) ?? 0,
     };
-    if (canSeeSsn(role, r.id, req)) base.ssn = decryptFieldSafe(r.ssnEncrypted);
-    return maskPatientForRole(base, role) as PatientListItem;
+    const item = canSeeSsn(role, r.id, req) ? { ...base, ssn: decryptFieldSafe(r.ssnEncrypted) } : base;
+    return maskPatientForRole(item, role) as PatientListItem;
   });
 
   auditRead(req, { entityType: 'patients', entityId: ':list', action: 'GET /api/patients (PHI read)' });

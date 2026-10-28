@@ -26,20 +26,28 @@ Next.js web UI.
 ## Repository layout
 
 ```
-apps/
-  api/        REST + FHIR API server (Express)
-  worker/     Background jobs: ETL, DQ, MDM, warehouse
-  web/        Next.js frontend
-packages/
-  shared/     Canonical types + zod schemas + API contract (ENDPOINTS)
-  db/         Prisma schema (source of truth) + prisma client singleton + seed
-  etl-core/   ETL primitives: extract/transform/load, parsers, checksums
-  dq/         Data-quality rule engine
-  mdm/        Master data management / patient matching
-  analytics/  KPIs and warehouse aggregation
-  ml/         Deterministic readmission / risk model
-fixtures/     Synthetic source-system extracts (EMR, LIS, billing, insurance, HL7)
-infra/        Optional docker-compose for local Postgres/Redis/Metabase
+frontend/           # Next.js standalone frontend (own package.json, file: deps on backend packages)
+  app/              App Router pages
+  components/       Reusable UI components
+  lib/              Frontend helpers
+  next.config.mjs   Next.js config (transpile @medidata/shared)
+  package.json      Standalone deps (@medidata/db, @medidata/shared via file:)
+  postcss.config.mjs, tailwind.config.ts, tsconfig.json
+
+backend/            # Backend workspace root (owns apps/*, packages/*, fixtures/, infra/, tests/)
+  apps/
+    api/            REST + FHIR API server (Express)
+    worker/         Background jobs: ETL, DQ, MDM, warehouse
+  packages/
+    shared/         Canonical types + zod schemas + API contract (ENDPOINTS)
+    db/             Prisma schema (source of truth) + prisma client singleton + seed
+    etl-core/       ETL primitives: extract/transform/load, parsers, checksums
+    dq/             Data-quality rule engine
+    mdm/            Master data management / patient matching
+    analytics/      KPIs and warehouse aggregation
+    ml/             Deterministic readmission / risk model
+  fixtures/         Synthetic source-system extracts (EMR, LIS, billing, insurance, HL7)
+  infra/            Optional docker-compose for local Postgres/Redis/Metabase
 ```
 
 ## Setup

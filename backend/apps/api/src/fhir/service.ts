@@ -6,8 +6,8 @@
  */
 import { prisma } from '@medidata/db';
 import { API_BASE } from '@medidata/shared';
-import { ApiError } from '../../lib/envelope.js';
-import { dec } from '../../lib/serialize.js';
+import { ApiError } from '../lib/envelope.js';
+import { dec } from '../lib/serialize.js';
 
 const DEFAULT_COUNT = 50;
 const MAX_COUNT = 200;

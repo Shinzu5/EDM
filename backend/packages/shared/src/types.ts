@@ -70,6 +70,6 @@ export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 export type LoginResponse = z.infer<typeof LoginResponseSchema>;
 
 /** Standard response wrapper used by every API route. */
-export type ApiEnvelope<T> = z.infer<ReturnType<typeof ApiEnvelopeSchema<z.ZodType<T>>>>;
+export type ApiEnvelope<T> = { success: true; data: T } | { success: false; error: { code: string; message: string } };
 
 export type { EndpointKey };
