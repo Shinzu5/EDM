@@ -1,0 +1,47 @@
+[
+  {
+    "policy_number": "POL-700000",
+    "mrn": "MRN-100000",
+    "payer_code": "PHILHEALTH",
+    "member_number": "MBR4821903",
+    "effective_date": "2024-01-01",
+    "terminated_date": null,
+    "status": "ACTIVE"
+  },
+  {
+    "policy_number": "POL-700001",
+    "mrn": "MRN-100001",
+    "payer_code": "MAXICARE",
+    "member_number": "MBR5530182",
+    "effective_date": "2024-01-01",
+    "terminated_date": null,
+    "status": "ACTIVE"
+  },
+  {
+    "policy_number": "POL-700002",
+    "mrn": "MRN-900001",
+    "payer_code": "MEDICARD",
+    "member_number": "MBR6672410",
+    "effective_date": "2024-02-01",
+    "terminated_date": null,
+    "status": "ACTIVE"
+  },
+  {
+    "policy_number": "POL-700003",
+    "mrn": "MRN-100002",
+    "payer_code": "MAXICARE",
+    "member_number": "MBR7719035",
+    "effective_date": "2023-06-01",
+    "terminated_date": "2024-05-31",
+    "status": "INACTIVE"
+  },
+  {
+    "policy_number": "POL-700004",
+    "mrn": "MRN-100000",
+    "payer_code": "MEDICARD",
+    "member_number": "MBR8840271",
+    "effective_date": "2024-07-01",
+    "terminated_date": null,
+    "status": "PENDING"
+  }
+]

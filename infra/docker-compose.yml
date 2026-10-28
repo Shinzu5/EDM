@@ -1,0 +1,53 @@
+# Optional LOCAL-DEV tooling only.
+#
+# Neon (serverless Postgres) is the PRIMARY database for this project — see
+# DATABASE_URL in .env. Upstash is the primary Redis. Use this compose file only
+# when you want to develop fully offline or demo the stack without cloud deps.
+#
+#   docker compose -f infra/docker-compose.yml up -d
+#
+# If you use local Postgres, point DATABASE_URL/DIRECT_URL at localhost:5432
+# and run `npm run migrate:dev` to create the schema, then `npm run seed`.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: medidata-postgres
+    environment:
+      POSTGRES_USER: medidata
+      POSTGRES_PASSWORD: medidata
+      POSTGRES_DB: medidata
+    ports:
+      - '5432:5432'
+    volumes:
+      - medidata-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U medidata']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: medidata-redis
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Optional BI layer for exploring the warehouse. File-based storage, no
+  # external DB needed. Open http://localhost:3001 and connect to
+  # postgres://medidata:medidata@postgres:5432/medidata if you want live tables.
+  metabase:
+    image: metabase/metabase:latest
+    container_name: medidata-metabase
+    ports:
+      - '3001:3000'
+    environment:
+      MB_DB_TYPE: file
+
+volumes:
+  medidata-pgdata:

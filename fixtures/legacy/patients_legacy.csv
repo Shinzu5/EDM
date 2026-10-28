@@ -1,0 +1,13 @@
+patient_id,full_name,dob,sex,city
+L-001,JUAN DELA CRUZ,03/14/1985,M,Manila
+L-002,juan dela cruz,1985-03-14,M,MANILA
+L-003,Juan D. Cruz,14/03/1985,m,Manila
+L-004,maria santos,1978-11-02,F,Quezon City
+L-005,MARIA  SANTOS,11/02/1978,F,Quezon City
+L-006,jose reyes,,X,Cebu City
+L-007,Ana Bautista,1990-07-23,,Davao City
+L-008,ana bautista,7/23/1990,female,Davao City
+L-009,MIGUEL MENDOZA,1966-02-01,M,Makati
+L-010,miguel mendoza,02/01/1966,M,Makati
+L-011,Angelica Garcia,2001-09-09,F,Pasig
+L-012,rafael villanueva,,M?,Iloilo City

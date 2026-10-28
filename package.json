@@ -1,0 +1,40 @@
+{
+  "name": "medidata",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MediData — Enterprise Data Management platform for healthcare (student final project). All data is SYNTHETIC.",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @medidata/api",
+    "dev:worker": "npm run dev -w @medidata/worker",
+    "dev:web": "npm run dev -w @medidata/web",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "seed": "npm run seed -w @medidata/db",
+    "migrate:dev": "npm run migrate:dev -w @medidata/db",
+    "migrate:deploy": "npm run migrate:deploy -w @medidata/db",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,css,md,yml,yaml}\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prettier": "^3.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "prisma@6.19.3": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true
+  }
+}

@@ -1,0 +1,633 @@
+// MediData — CANONICAL Prisma schema.
+// All other workspaces (api, worker, etl, dq, mdm, analytics, ml, web) depend on this.
+// Multi-schema layout: app (OLTP), staging (raw landing), warehouse (dimensional), gov (governance).
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas  = ["app", "staging", "warehouse", "gov"]
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  PHYSICIAN
+  LAB_TECH
+  BILLER
+  ANALYST
+  AUDITOR
+  PATIENT
+  @@schema("app")
+}
+
+enum Sex {
+  MALE
+  FEMALE
+  OTHER
+  UNKNOWN
+  @@schema("app")
+}
+
+enum EncounterType {
+  INPATIENT
+  OUTPATIENT
+  EMERGENCY
+  TELEHEALTH
+  @@schema("app")
+}
+
+enum ClaimStatus {
+  DRAFT
+  SUBMITTED
+  PENDING
+  PAID
+  DENIED
+  APPEALED
+  @@schema("app")
+}
+
+enum ResultStatus {
+  COLLECTED
+  IN_PROGRESS
+  REVIEWED
+  RELEASED
+  CORRECTED
+  @@schema("app")
+}
+
+enum SourceSystem {
+  EMR
+  LIS
+  BILLING
+  INSURANCE
+  LEGACY
+  @@schema("app")
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  @@schema("app")
+}
+
+enum Severity {
+  WARNING
+  CRITICAL
+  @@schema("app")
+}
+
+enum Classification {
+  PUBLIC
+  INTERNAL
+  PII
+  PHI
+  @@schema("gov")
+}
+
+// ---------------------------------------------------------------------------
+// app schema — operational (OLTP) models
+// ---------------------------------------------------------------------------
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  passwordHash String
+  fullName    String
+  role        UserRole
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  labResults     LabResult[]
+  auditLogs      AuditLog[]
+  documents      DocumentControl[]
+  catalogSteward DataCatalog[]
+  glossaryTerms  Glossary[]
+  slaOwner       FreshnessSla[]
+  alerts         AlertLog[]
+
+  @@schema("app")
+}
+
+model Patient {
+  id                String       @id @default(uuid())
+  mrn               String       @unique
+  firstName         String
+  lastName          String
+  fullNameNormalized String       
+  dateOfBirth       DateTime     @db.Date
+  sex               Sex
+  phone             String?
+  email             String?
+  address           String?
+  city              String?
+  ssnEncrypted      String? // base64 — synthetic only, never real PHI
+  sourceSystem      SourceSystem
+  externalId        String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  encounters Encounter[]
+  labOrders  LabOrder[]
+  labResults LabResult[]
+  claims     Claim[]
+  consents   Consent[]
+
+  @@index([fullNameNormalized])
+  @@schema("app")
+}
+
+model Provider {
+  id         String   @id @default(uuid())
+  npi        String   @unique
+  fullName   String
+  specialty  String
+  department String
+  createdAt  DateTime @default(now())
+
+  encounters Encounter[]
+  labOrders  LabOrder[]
+
+  @@schema("app")
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  type      String
+  createdAt DateTime @default(now())
+
+  encounters Encounter[]
+
+  @@schema("app")
+}
+
+model Encounter {
+  id             String        @id @default(uuid())
+  patientId      String
+  providerId     String
+  locationId     String
+  type           EncounterType
+  status         String
+  admittedAt     DateTime
+  dischargedAt   DateTime?
+  diagnosisCode  String
+  diagnosisText  String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  patient  Patient  @relation(fields: [patientId], references: [id])
+  provider Provider @relation(fields: [providerId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
+  claims   Claim[]
+
+  @@index([patientId])
+  @@index([admittedAt])
+  @@schema("app")
+}
+
+model LabOrder {
+  id                  String   @id @default(uuid())
+  patientId           String
+  orderingProviderId  String
+  testCode            String
+  testName            String
+  orderedAt           DateTime
+  status              String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  patient           Patient  @relation(fields: [patientId], references: [id])
+  orderingProvider Provider @relation(fields: [orderingProviderId], references: [id])
+  result            LabResult?
+
+  @@index([patientId])
+  @@schema("app")
+}
+
+model LabResult {
+  id             String       @id @default(uuid())
+  orderId        String       @unique
+  patientId      String
+  testCode       String
+  valueNumeric   Float?
+  valueText      String?
+  unit           String
+  referenceRange String
+  abnormalFlag   String?
+  collectedAt    DateTime
+  resultedAt     DateTime?
+  reviewedAt     DateTime?
+  releasedAt     DateTime?
+  reviewedById   String?
+  status         ResultStatus
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  order     LabOrder @relation(fields: [orderId], references: [id])
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  reviewedBy User?   @relation(fields: [reviewedById], references: [id])
+
+  @@index([patientId])
+  @@index([testCode])
+  @@schema("app")
+}
+
+model Payer {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  type      String
+  createdAt DateTime @default(now())
+
+  claims Claim[]
+
+  @@schema("app")
+}
+
+model Claim {
+  id              String      @id @default(uuid())
+  patientId       String
+  encounterId     String
+  payerId         String
+  claimNumber     String      @unique
+  status          ClaimStatus
+  billedAmount    Decimal     @db.Decimal(12, 2)
+  paidAmount      Decimal?    @db.Decimal(12, 2)
+  submittedAt     DateTime
+  sourceUpdatedAt DateTime
+  paidAt          DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  patient   Patient   @relation(fields: [patientId], references: [id])
+  encounter Encounter @relation(fields: [encounterId], references: [id])
+  payer     Payer     @relation(fields: [payerId], references: [id])
+
+  @@index([patientId])
+  @@index([status])
+  @@schema("app")
+}
+
+model Consent {
+  id          String    @id @default(uuid())
+  patientId   String
+  consentType String
+  granted     Boolean
+  grantedAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@schema("app")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?
+  actorRole   String
+  action      String
+  entityType  String
+  entityId    String
+  beforeJson  Json?
+  afterJson   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  actorUser User? @relation(fields: [actorUserId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@schema("app")
+}
+
+model OutboxEvent {
+  id            String   @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  createdAt     DateTime @default(now())
+  publishedAt   DateTime?
+
+  @@index([publishedAt])
+  @@schema("app")
+}
+
+model DocumentControl {
+  id          String    @id @default(uuid())
+  docCode     String    @unique
+  title       String
+  version     String
+  status      String
+  effectiveAt DateTime
+  reviewedAt  DateTime?
+  ownerUserId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  ownerUser User? @relation(fields: [ownerUserId], references: [id])
+
+  @@schema("app")
+}
+
+// ---------------------------------------------------------------------------
+// staging schema — raw landing zone for ETL
+// ---------------------------------------------------------------------------
+
+model RawSourceRecord {
+  id             String       @id @default(uuid())
+  sourceSystem   SourceSystem
+  recordType     String
+  sourceRecordId String
+  payload        Json
+  extractedAt    DateTime     @default(now())
+  checksum       String
+  isProcessed    Boolean      @default(false)
+
+  @@unique([sourceSystem, recordType, sourceRecordId, checksum])
+  @@index([sourceSystem, isProcessed])
+  @@schema("staging")
+}
+
+// ---------------------------------------------------------------------------
+// warehouse schema — dimensional model (surrogate keys)
+// ---------------------------------------------------------------------------
+
+model DimPatient {
+  id          String   @id @default(uuid())
+  goldenId    String   
+  mrn         String
+  fullName    String
+  dateOfBirth DateTime @db.Date
+  sex         String
+  city        String?
+  isGolden    Boolean  @default(true)
+  sourceCount Int      @default(1)
+  updatedAt   DateTime @updatedAt
+
+  factEncounters FactEncounter[]
+  factLabResults FactLabResult[]
+  factClaims     FactClaim[]
+
+  @@index([goldenId])
+  @@schema("warehouse")
+}
+
+model DimProvider {
+  id         String @id @default(uuid())
+  npi        String
+  fullName   String
+  specialty  String
+  department String
+
+  factEncounters FactEncounter[]
+
+  @@schema("warehouse")
+}
+
+model DimLocation {
+  id   String @id @default(uuid())
+  code String
+  name String
+  type String
+
+  factEncounters FactEncounter[]
+
+  @@schema("warehouse")
+}
+
+model DimPayer {
+  id   String @id @default(uuid())
+  code String
+  name String
+  type String
+
+  factClaims FactClaim[]
+
+  @@schema("warehouse")
+}
+
+model DimDate {
+  dateKey   Int      @id
+  fullDate  DateTime @db.Date
+  year      Int
+  quarter   Int
+  month     Int
+  week      Int
+  dayOfWeek Int
+  isWeekend Boolean
+
+  @@schema("warehouse")
+}
+
+model DimTestCatalog {
+  testCode   String  @id
+  testName   String
+  loincCode  String?
+  unit       String
+  department String
+
+  factLabResults FactLabResult[]
+
+  @@schema("warehouse")
+}
+
+model FactEncounter {
+  id            String   @id @default(uuid())
+  patientKey    String
+  providerKey   String
+  locationKey   String
+  dateKey       Int
+  encounterType String
+  status        String
+  losDays       Float?
+  chargeAmount  Decimal? @db.Decimal(12, 2)
+  diagnosisCode String
+
+  patient    DimPatient  @relation(fields: [patientKey], references: [id])
+  provider   DimProvider @relation(fields: [providerKey], references: [id])
+  location   DimLocation @relation(fields: [locationKey], references: [id])
+
+  @@index([patientKey])
+  @@index([dateKey])
+  @@schema("warehouse")
+}
+
+model FactLabResult {
+  id           String   @id @default(uuid())
+  patientKey   String
+  testKey      String
+  dateKey      Int
+  valueNumeric Float?
+  abnormalFlag String?
+  tatHours     Float?
+
+  patient DimPatient      @relation(fields: [patientKey], references: [id])
+  test    DimTestCatalog @relation(fields: [testKey], references: [testCode])
+
+  @@index([patientKey])
+  @@index([dateKey])
+  @@schema("warehouse")
+}
+
+model FactClaim {
+  id            String   @id @default(uuid())
+  patientKey    String
+  payerKey      String
+  dateKey       Int
+  claimStatus   String
+  billedAmount  Decimal  @db.Decimal(12, 2)
+  paidAmount    Decimal? @db.Decimal(12, 2)
+  daysToPayment Int?
+
+  patient DimPatient @relation(fields: [patientKey], references: [id])
+  payer   DimPayer   @relation(fields: [payerKey], references: [id])
+
+  @@index([patientKey])
+  @@index([dateKey])
+  @@schema("warehouse")
+}
+
+// ---------------------------------------------------------------------------
+// gov schema — data governance / MDM / observability
+// ---------------------------------------------------------------------------
+
+model DataCatalog {
+  id            String         @id @default(uuid())
+  schemaName    String
+  tableName     String
+  description   String
+  stewardUserId String?
+  classification Classification
+  containsPhi    Boolean        @default(false)
+  retentionDays Int?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  stewardUser User? @relation(fields: [stewardUserId], references: [id])
+
+  @@unique([schemaName, tableName])
+  @@schema("gov")
+}
+
+model Glossary {
+  id          String   @id @default(uuid())
+  term        String   @unique
+  definition  String
+  domain      String
+  ownerUserId String?
+  createdAt   DateTime @default(now())
+
+  ownerUser User? @relation(fields: [ownerUserId], references: [id])
+
+  @@schema("gov")
+}
+
+model PipelineRun {
+  id           String    @id @default(uuid())
+  pipelineName String
+  status       JobStatus
+  rowsIn       Int?
+  rowsOut      Int?
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  errorMsg     String?
+
+  dqResults DqResult[]
+
+  @@index([pipelineName, startedAt])
+  @@schema("gov")
+}
+
+model DqRule {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  severity     Severity
+  targetSchema String
+  targetTable  String
+  sqlAssertion String
+  description  String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  results DqResult[]
+
+  @@schema("gov")
+}
+
+model DqResult {
+  id          String   @id @default(uuid())
+  ruleId      String
+  runId       String?
+  passed      Boolean
+  failedCount Int
+  sampleKeys  Json?
+  checkedAt   DateTime @default(now())
+
+  rule DqRule      @relation(fields: [ruleId], references: [id])
+  run  PipelineRun? @relation(fields: [runId], references: [id])
+
+  @@index([ruleId, checkedAt])
+  @@schema("gov")
+}
+
+model MdmMaster {
+  id              String       @id @default(uuid())
+  goldenId        String
+  sourceSystem    SourceSystem
+  sourceRecordId  String
+  // Plain String on purpose: cross-schema relations are kept minimal so `prisma generate`
+  // stays robust. Join to app.Patient by id in application code.
+  patientId       String
+  matchScore      Float
+  isGolden        Boolean      @default(false)
+  survivorshipRule String
+  mergedAt        DateTime     @default(now())
+
+  @@index([goldenId])
+  @@index([patientId])
+  @@schema("gov")
+}
+
+model FreshnessSla {
+  id                  String   @id @default(uuid())
+  tableName           String   @unique
+  maxStalenessMinutes Int
+  ownerUserId         String?
+  createdAt           DateTime @default(now())
+
+  ownerUser User? @relation(fields: [ownerUserId], references: [id])
+
+  @@schema("gov")
+}
+
+model AlertLog {
+  id                String   @id @default(uuid())
+  channel           String
+  severity          Severity
+  message           String
+  sentAt            DateTime @default(now())
+  acknowledgedById  String?
+  acknowledgedAt    DateTime?
+
+  acknowledgedBy User? @relation(fields: [acknowledgedById], references: [id])
+
+  @@schema("gov")
+}
